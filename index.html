@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Tab Switcher</title>
+    <meta name="author" content="João Victor Nunes da Silva">
+
+    <style>
+        * {
+            box-sizing: border-box;
+            scroll-behavior: smooth;
+        }
+
+        .tabs {
+            display: flex;
+            position: relative;
+            width: 100%;
+            padding: 10px;
+            background-color: #212121;
+            border: 2px solid gray;
+            border-radius: 10px;
+            z-index: 1;
+            color: white;
+            overflow: auto;
+            scrollbar-width: none;
+        }
+
+        .tabs::-webkit-scrollbar {
+            display: none;
+        }
+
+        .tabs > * {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            padding: 10px;
+            border-radius: 10px;
+            flex-basis: 100px;
+            min-width: 100px;
+            height: 48px;
+            cursor: pointer;
+        }
+
+        .tabs > *:not([class="slider"]) {
+            z-index: 1;
+        }
+
+        .tabs > * > * {
+            overflow: hidden;
+            white-space: nowrap;
+            text-overflow: ellipsis;
+        }
+
+        .slider {
+            position: absolute;
+            width: 100px;
+            background-color: white;
+            border: 2px solid #bdbdbd;
+            transition: left .2s;
+            opacity: .2;
+            z-index: 0;
+        }
+
+        @media (max-width: 480px) {
+            .tabs {
+                border-radius: 0;
+                border: none;
+                padding: 0;
+            }
+
+            .slider {
+                border-radius: 0;
+                border: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="tabs">
+        <div class="selected"><div>Tab 1</div></div>
+        <div><div>Tab 2</div></div>
+        <div><div>Tab 3</div></div>
+        <div><div>Tab 4</div></div>
+        <div><div>Tab 5</div></div>
+        <div class="slider"></div>
+    </div>
+
+    <script type="text/javascript">
+        const wrapper = document.querySelector('.tabs');
+        const tabs = Array.from(wrapper.children);
+
+        tabs.forEach((tab, index) => {
+            tab.addEventListener('click', function () {
+                this.scrollIntoView();
+                const device = document.body.getAttribute('data-device');
+                const offset = device === 'mobile' ? 0 : 10;
+                document.querySelector('.slider').style.left = `${100 * index + offset}px`;
+                document.querySelector('.tabs .selected').classList.remove('selected');
+                this.classList.add('selected');
+            });
+        });
+
+        function setDevice(e) {
+            const match = window.matchMedia('(max-width: 480px)').matches;
+            if (match) {
+                const device = document.body.getAttribute('data-device');
+                if (device === 'desktop' && e.type === 'resize') {
+                    const currentOffset = Number(document.querySelector('.slider').style.left.replace('px', ''));
+                    document.querySelector('.slider').style.left = `${currentOffset - 10}px`;
+                }
+                if (e.type === 'load') {
+                    document.querySelector('.slider').style.left = '0px';
+                }
+                document.body.setAttribute('data-device', 'mobile');
+            } else {
+                const device = document.body.getAttribute('data-device');
+                if (device === 'mobile' && e.type === 'resize') {
+                    const currentOffset = Number(document.querySelector('.slider').style.left.replace('px', ''));
+                    document.querySelector('.slider').style.left = `${currentOffset + 10}px`;
+                }
+                if (e.type === 'load') {
+                    document.querySelector('.slider').style.left = '10px';
+                }
+                document.body.setAttribute('data-device', 'desktop');
+            }
+        }
+
+        window.addEventListener('resize', setDevice);
+
+        window.addEventListener('load', setDevice);
+    </script>
+</body>
+</html>
