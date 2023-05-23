@@ -32,7 +32,7 @@
             display: none;
         }
 
-        .tabs>* {
+        .tabs > * {
             display: flex;
             align-items: center;
             justify-content: center;
@@ -45,16 +45,16 @@
             cursor: pointer;
         }
 
-        .tabs>*:focus {
-            box-shadow: 0 0 0 2px gray;
+        .tabs > *:focus {
+            box-shadow: 0 0 0 2px gray inset;
             outline: none;
         }
 
-        .tabs>*:not([class="slider"]) {
+        .tabs > *:not([class="slider"]) {
             z-index: 1;
         }
 
-        .tabs>*>* {
+        .tabs > * > * {
             overflow: hidden;
             white-space: nowrap;
             text-overflow: ellipsis;
@@ -86,116 +86,166 @@
 </head>
 
 <body>
-    <div class="tabs">
-        <div class="selected" tabindex="0" tab>
-            <div>Tab 1</div>
-        </div>
-        <div tab>
-            <div>Tab 2</div>
-        </div>
-        <div tab>
-            <div>Tab 3</div>
-        </div>
-        <div tab>
-            <div>Tab 4</div>
-        </div>
-        <div tab>
-            <div>Tab 5</div>
-        </div>
-        <div class="slider"></div>
-    </div>
+    <div id="tabs"></div>
 
     <script type="text/javascript">
-        const container = document.querySelector('.tabs');
-        const tabs = Array.from(container.querySelectorAll('[tab]'));
-        const slider = document.querySelector('.slider');
+        class Tabs {
+            /** 
+                @param labels {Array<string>}
+                @param container {Element}
+                @param onTabChange {Function}
+            */
+            constructor(labels, container, onTabChange) {
+                const tabs = labels.map((label, index) => {
+                    const element = document.createElement('div');
+                    const inner = document.createElement('div');
 
-        tabs.forEach((tab, index) => {
-            function selectionHandler(e) {
-                if (e.type === 'click' || (e.type === 'keydown' && e.code === 'Enter')) {
-                    this.scrollIntoView();
+                    if (index === 0) {
+                        element.setAttribute('tabindex', '0');
+                        element.classList.add('selected');
+                    }
+
+                    element.setAttribute('tab', '');
+                    inner.textContent = label;
+                    element.appendChild(inner);
+
+                    return element;
+                });
+
+                container.classList.add('tabs');
+                container.replaceChildren(...tabs);
+
+                const slider = document.createElement('div');
+                slider.classList.add('slider');
+                container.appendChild(slider);
+
+                this.container = container;
+                this.tabs = tabs;
+                this.slider = slider;
+                this.onTabChange = onTabChange;
+                this.selectedIndex = 0;
+                this.focusedIndex = 0;
+
+                this.onTabChange(this.selectedIndex);
+
+                window.addEventListener('load', this.setDevice.bind(this));
+                window.addEventListener('resize', this.setDevice.bind(this));
+
+                this.setTabListeners();
+                this.setContainerListeners();
+            }
+
+            setTabListeners() {
+                const self = this;
+
+                this.tabs.forEach((tab, index) => {
+                    function selectThisTab() {
+                        this.scrollIntoView();
+                        this.classList.add('selected');
+                        this.classList.add('focused');
+                        this.setAttribute('tabindex', '0');
+                        self.updateSlider(index);
+                    }
+
+                    function clickHandler() {
+                        this.selectThisTab = selectThisTab;
+                        this.selectThisTab();
+                    }
+
+                    function keyDownHandler(e) {
+                        if (e.code === 'Enter') {
+                            this.selectThisTab = selectThisTab;
+                            this.selectThisTab();
+                        }
+                    }
+
+                    function focusHandler() {
+                        this.classList.add('focused');
+                    }
+
+                    function blurhandler() {
+                        this.classList.remove('focused');
+                        this.setAttribute('tabindex', '-1');
+                    }
+
+                    tab.addEventListener('click', clickHandler);
+                    tab.addEventListener('keydown', keyDownHandler);
+                    tab.addEventListener('focus', focusHandler);
+                    tab.addEventListener('blur', blurhandler);
+                });
+            }
+
+            setContainerListeners() {
+                this.container.addEventListener('keydown', (e) => {
+                    const focusedIndex = this.focusedIndex;
+                    let newIndex = focusedIndex;
+                    let shouldChange = false;
+
+                    if (e.code === 'ArrowLeft') {
+                        e.preventDefault();
+                        newIndex = focusedIndex === 0 ? this.tabs.length - 1 : focusedIndex - 1;
+                        shouldChange = true;
+                    }
+
+                    if (e.code === 'ArrowRight') {
+                        e.preventDefault();
+                        newIndex = focusedIndex === this.tabs.length - 1 ? 0 : focusedIndex + 1;
+                        shouldChange = true;
+                    }
+
+                    if (shouldChange) {
+                        this.tabs[newIndex].setAttribute('tabindex', '0');
+                        this.tabs[newIndex].focus();
+                        this.focusedIndex = newIndex;
+                    }
+
+                    if (e.code === 'Tab') {
+                        setTimeout(() => {
+                            const selectedIndex = this.selectedIndex;
+                            this.tabs[selectedIndex].setAttribute('tabindex', '0');
+                        }, 0);
+                    }
+                });
+            }
+
+            updateSlider(index) {
+                const device = document.body.getAttribute('data-device');
+                const offset = device === 'mobile' ? 0 : 10;
+                this.slider.style.left = `${100 * index + offset}px`;
+                this.tabs[this.selectedIndex].classList.remove('selected');
+                this.tabs[this.selectedIndex].setAttribute('tabindex', '-1');
+                this.selectedIndex = index;
+                this.onTabChange(index);
+            }
+
+            setDevice(e) {
+                const match = window.matchMedia('(max-width: 480px)').matches;
+                if (match) {
                     const device = document.body.getAttribute('data-device');
-                    const offset = device === 'mobile' ? 0 : 10;
-                    const selectedIndex = tabs.findIndex((tab) => tab.classList.contains('selected'));
-                    slider.style.left = `${100 * index + offset}px`;
-                    tabs[selectedIndex].classList.remove('selected');
-                    tabs[selectedIndex].setAttribute('tabindex', '-1');
-                    this.classList.add('selected');
-                    this.classList.add('focused');
-                    this.setAttribute('tabindex', '0');
+                    if (device === 'desktop' && e.type === 'resize') {
+                        const currentOffset = Number(this.slider.style.left.replace('px', ''));
+                        this.slider.style.left = `${currentOffset - 10}px`;
+                    }
+                    if (e.type === 'load') {
+                        this.slider.style.left = '0px';
+                    }
+                    document.body.setAttribute('data-device', 'mobile');
+                } else {
+                    const device = document.body.getAttribute('data-device');
+                    if (device === 'mobile' && e.type === 'resize') {
+                        const currentOffset = Number(this.slider.style.left.replace('px', ''));
+                        this.slider.style.left = `${currentOffset + 10}px`;
+                    }
+                    if (e.type === 'load') {
+                        this.slider.style.left = '10px';
+                    }
+                    document.body.setAttribute('data-device', 'desktop');
                 }
-            }
-
-            function focusHandler() {
-                this.classList.add('focused');
-            }
-
-            function blurhandler() {
-                this.classList.remove('focused');
-                this.setAttribute('tabindex', '-1');
-            }
-
-            tab.addEventListener('click', selectionHandler);
-            tab.addEventListener('keydown', selectionHandler);
-            tab.addEventListener('focus', focusHandler);
-            tab.addEventListener('blur', blurhandler);
-        });
-
-        function setDevice(e) {
-            const match = window.matchMedia('(max-width: 480px)').matches;
-            if (match) {
-                const device = document.body.getAttribute('data-device');
-                if (device === 'desktop' && e.type === 'resize') {
-                    const currentOffset = Number(document.querySelector('.slider').style.left.replace('px', ''));
-                    document.querySelector('.slider').style.left = `${currentOffset - 10}px`;
-                }
-                if (e.type === 'load') {
-                    document.querySelector('.slider').style.left = '0px';
-                }
-                document.body.setAttribute('data-device', 'mobile');
-            } else {
-                const device = document.body.getAttribute('data-device');
-                if (device === 'mobile' && e.type === 'resize') {
-                    const currentOffset = Number(document.querySelector('.slider').style.left.replace('px', ''));
-                    document.querySelector('.slider').style.left = `${currentOffset + 10}px`;
-                }
-                if (e.type === 'load') {
-                    document.querySelector('.slider').style.left = '10px';
-                }
-                document.body.setAttribute('data-device', 'desktop');
             }
         }
 
-        window.addEventListener('resize', setDevice);
-
-        window.addEventListener('load', setDevice);
-
-        container.addEventListener('keydown', function (e) {
-            const focusedIndex = tabs.findIndex((tab) => tab.classList.contains('focused'));
-            let newIndex = focusedIndex;
-            let shouldChange = false;
-
-            if (e.code === 'ArrowLeft') {
-                newIndex = focusedIndex === 0 ? tabs.length - 1 : focusedIndex - 1;
-                shouldChange = true;
-            }
-
-            if (e.code === 'ArrowRight') {
-                newIndex = focusedIndex === tabs.length - 1 ? 0 : focusedIndex + 1;
-                shouldChange = true;
-            }
-
-            if (shouldChange) {
-                tabs[newIndex].setAttribute('tabindex', '0');
-                tabs[newIndex].focus();
-            }
-
-            if (e.code === 'Tab') {
-                setTimeout(() => {
-                    const selectedIndex = tabs.findIndex((tab) => tab.classList.contains('selected'));
-                    tabs[selectedIndex].setAttribute('tabindex', '0');
-                }, 0);
-            }
+        new Tabs(['Tab 1', 'Tab 2', 'Tab 3', 'Tab 4', 'Tab 5'], document.getElementById('tabs'), (tab) => {
+            console.log(`Tab ${tab} was selected.`);
         });
     </script>
 </body>
