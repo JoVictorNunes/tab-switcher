@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -31,7 +32,7 @@
             display: none;
         }
 
-        .tabs > * {
+        .tabs>* {
             display: flex;
             align-items: center;
             justify-content: center;
@@ -44,11 +45,16 @@
             cursor: pointer;
         }
 
-        .tabs > *:not([class="slider"]) {
+        .tabs>*:focus {
+            box-shadow: 0 0 0 2px gray;
+            outline: none;
+        }
+
+        .tabs>*:not([class="slider"]) {
             z-index: 1;
         }
 
-        .tabs > * > * {
+        .tabs>*>* {
             overflow: hidden;
             white-space: nowrap;
             text-overflow: ellipsis;
@@ -78,29 +84,61 @@
         }
     </style>
 </head>
+
 <body>
     <div class="tabs">
-        <div class="selected"><div>Tab 1</div></div>
-        <div><div>Tab 2</div></div>
-        <div><div>Tab 3</div></div>
-        <div><div>Tab 4</div></div>
-        <div><div>Tab 5</div></div>
+        <div class="selected" tabindex="0" tab>
+            <div>Tab 1</div>
+        </div>
+        <div tab>
+            <div>Tab 2</div>
+        </div>
+        <div tab>
+            <div>Tab 3</div>
+        </div>
+        <div tab>
+            <div>Tab 4</div>
+        </div>
+        <div tab>
+            <div>Tab 5</div>
+        </div>
         <div class="slider"></div>
     </div>
 
     <script type="text/javascript">
-        const wrapper = document.querySelector('.tabs');
-        const tabs = Array.from(wrapper.children);
+        const container = document.querySelector('.tabs');
+        const tabs = Array.from(container.querySelectorAll('[tab]'));
+        const slider = document.querySelector('.slider');
 
         tabs.forEach((tab, index) => {
-            tab.addEventListener('click', function () {
-                this.scrollIntoView();
-                const device = document.body.getAttribute('data-device');
-                const offset = device === 'mobile' ? 0 : 10;
-                document.querySelector('.slider').style.left = `${100 * index + offset}px`;
-                document.querySelector('.tabs .selected').classList.remove('selected');
-                this.classList.add('selected');
-            });
+            function selectionHandler(e) {
+                if (e.type === 'click' || (e.type === 'keydown' && e.code === 'Enter')) {
+                    this.scrollIntoView();
+                    const device = document.body.getAttribute('data-device');
+                    const offset = device === 'mobile' ? 0 : 10;
+                    const selectedIndex = tabs.findIndex((tab) => tab.classList.contains('selected'));
+                    slider.style.left = `${100 * index + offset}px`;
+                    tabs[selectedIndex].classList.remove('selected');
+                    tabs[selectedIndex].setAttribute('tabindex', '-1');
+                    this.classList.add('selected');
+                    this.classList.add('focused');
+                    this.setAttribute('tabindex', '0');
+                }
+            }
+
+            function focusHandler() {
+                this.classList.add('focused');
+            }
+
+            function blurhandler() {
+                this.classList.remove('focused');
+                this.setAttribute('tabindex', '-1');
+            }
+
+            tab.addEventListener('click', selectionHandler);
+            tab.addEventListener('keydown', selectionHandler);
+            tab.addEventListener('focus', focusHandler);
+            tab.addEventListener('blur', blurhandler);
         });
 
         function setDevice(e) {
@@ -131,6 +169,35 @@
         window.addEventListener('resize', setDevice);
 
         window.addEventListener('load', setDevice);
+
+        container.addEventListener('keydown', function (e) {
+            const focusedIndex = tabs.findIndex((tab) => tab.classList.contains('focused'));
+            let newIndex = focusedIndex;
+            let shouldChange = false;
+
+            if (e.code === 'ArrowLeft') {
+                newIndex = focusedIndex === 0 ? tabs.length - 1 : focusedIndex - 1;
+                shouldChange = true;
+            }
+
+            if (e.code === 'ArrowRight') {
+                newIndex = focusedIndex === tabs.length - 1 ? 0 : focusedIndex + 1;
+                shouldChange = true;
+            }
+
+            if (shouldChange) {
+                tabs[newIndex].setAttribute('tabindex', '0');
+                tabs[newIndex].focus();
+            }
+
+            if (e.code === 'Tab') {
+                setTimeout(() => {
+                    const selectedIndex = tabs.findIndex((tab) => tab.classList.contains('selected'));
+                    tabs[selectedIndex].setAttribute('tabindex', '0');
+                }, 0);
+            }
+        });
     </script>
 </body>
+
 </html>
